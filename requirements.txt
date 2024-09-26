@@ -1,4 +1,4 @@
 streamlit==1.22.0
-torch==2.2.0  # or a later version
+torch==2.0.1
 transformers==4.29.2
-pillow==9.5.0
+pillow==9.5.0 
