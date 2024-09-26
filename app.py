@@ -4,25 +4,35 @@ import torch
 from transformers import AutoFeatureExtractor, AutoModelForVision2Seq
 import re
 
-# Load the GOT model and feature extractor
-model_name = "microsoft/got-base"
-feature_extractor = AutoFeatureExtractor.from_pretrained(model_name)
-model = AutoModelForVision2Seq.from_pretrained(model_name)
+@st.cache_resource
+def load_model():
+    model_name = "microsoft/trocr-base-handwritten"  # Changed model
+    try:
+        feature_extractor = AutoFeatureExtractor.from_pretrained(model_name)
+        model = AutoModelForVision2Seq.from_pretrained(model_name)
+        return feature_extractor, model
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        return None, None
+
+feature_extractor, model = load_model()
 
 def perform_ocr(image):
-    # Prepare the image for the model
+    if feature_extractor is None or model is None:
+        return "Model failed to load. Please check your internet connection and try again."
+    
     inputs = feature_extractor(images=image, return_tensors="pt")
     
-    # Generate OCR output
-    with torch.no_grad():
-        outputs = model.generate(**inputs, max_length=512)
-    
-    # Decode the output
-    ocr_text = model.decode(outputs[0], skip_special_tokens=True)
-    return ocr_text
+    try:
+        with torch.no_grad():
+            outputs = model.generate(**inputs, max_length=512)
+        
+        ocr_text = model.decode(outputs[0], skip_special_tokens=True)
+        return ocr_text
+    except Exception as e:
+        return f"Error performing OCR: {str(e)}"
 
 def search_text(text, keyword):
-    # Simple case-insensitive search
     pattern = re.compile(re.escape(keyword), re.IGNORECASE)
     return pattern.findall(text)
 
@@ -41,10 +51,8 @@ def main():
             st.subheader("Extracted Text:")
             st.text_area("OCR Result", ocr_result, height=200)
             
-            # Save OCR result in session state
             st.session_state['ocr_result'] = ocr_result
         
-        # Keyword search
         if 'ocr_result' in st.session_state:
             keyword = st.text_input("Enter a keyword to search:")
             if keyword:
